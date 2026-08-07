@@ -1,0 +1,7 @@
+fastapi==0.139.0
+uvicorn==0.51.0
+networkx==3.6.1
+nexradaws==2.0.0
+arm-pyart
+torch @ https://download.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl
+torchvision @ https://download.pytorch.org/whl/cpu/torchvision-0.26.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl
