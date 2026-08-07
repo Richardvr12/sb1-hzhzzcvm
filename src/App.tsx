@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import { Play, Pause, Layers, Navigation, AlertTriangle, ShieldCheck, Search } from 'lucide-react';
 
 export default function App() {
