@@ -1,0 +1,9 @@
+{
+  "name": "vanguard-w-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "mkdir -p dist && echo '<html><body><h1>Vanguard-W UI Online</h1></body></html>' > dist/index.html"
+  }
+}
