@@ -1,3 +1,4 @@
-*.py
+# Ignore Python sources and typical Python build files so Vercel doesn't detect a Python app
+**/*.py
 requirements.txt
 Dockerfile
