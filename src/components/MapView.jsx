@@ -102,7 +102,11 @@ export default function MapView() {
 
   async function onSearchResult(latlng) {
     setPosition(latlng);
-    if (mapRef.current) mapRef.current.setView(latlng, 12);
+    // keep current zoom level, center on searched location
+    if (mapRef.current) {
+      const currentZoom = mapRef.current.getZoom();
+      mapRef.current.setView(latlng, currentZoom);
+    }
     setPredictionLog((p) => [`Searched: ${latlng.join(', ')}`, ...p].slice(0, 200));
   }
 
@@ -115,7 +119,11 @@ export default function MapView() {
       (pos) => {
         const latlng = [pos.coords.latitude, pos.coords.longitude];
         setPosition(latlng);
-        if (mapRef.current) mapRef.current.setView(latlng, 13);
+        // keep current zoom level when using location
+        if (mapRef.current) {
+          const currentZoom = mapRef.current.getZoom();
+          mapRef.current.setView(latlng, currentZoom);
+        }
         setPredictionLog((p) => [`Current location: ${latlng.join(', ')}`, ...p].slice(0, 200));
       },
       (err) => {
@@ -173,7 +181,10 @@ export default function MapView() {
       setPredictionLog((p) => [`Route: ${Math.round(length * 100) / 100} km, segments: ${riskSegments.length}`, ...p].slice(0,200));
       if (mapRef.current) {
         const latlngs = route.coordinates.map(([lon, lat]) => [lat, lon]);
-        mapRef.current.fitBounds(latlngs);
+        // keep the current zoom level; center to route midpoint instead of fitBounds
+        const mid = latlngs[Math.floor(latlngs.length / 2)];
+        const currentZoom = mapRef.current.getZoom();
+        mapRef.current.setView(mid, currentZoom);
       }
     } catch (err) {
       console.error('Route error', err);
