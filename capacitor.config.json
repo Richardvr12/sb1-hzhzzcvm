@@ -1,0 +1,6 @@
+{
+  "appId": "com.vanderpool.weatherfusion",
+  "appName": "EDGE-AI Weather Fusion",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
