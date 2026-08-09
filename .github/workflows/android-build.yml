@@ -2,7 +2,12 @@ name: Android Build (AAB)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - ci/android-aab-workflow
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -21,6 +26,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+          key: npm-cache-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            npm-cache-${{ runner.os }}-
 
       - name: Install project dependencies
         run: npm ci
@@ -68,6 +83,17 @@ jobs:
         if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/keystore.jks
+        shell: bash
+
+      - name: Create gradle.properties for signing
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          cat <<EOF > android/gradle.properties
+          RELEASE_STORE_FILE=keystore.jks
+          RELEASE_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
         shell: bash
 
       - name: Build Android AAB
