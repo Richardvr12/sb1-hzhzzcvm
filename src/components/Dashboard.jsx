@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import darkClouds from '../assets/weather-brands/dark_clouds.png';
 import snowActive from '../assets/weather-brands/snow_active.png';
 import coldExposure from '../assets/weather-brands/cold_exposure.png';
@@ -25,10 +25,41 @@ export default function Dashboard({ view, setView, startLiveFusion, stopLiveFusi
     }
   };
 
-  const branding = weatherBranding[weatherState] || { bg: '', header: 'Vanguard Dashboard' };
+  // Default gradient fallback (used when an image is missing or for clear/sunny states)
+  const defaultGradient = 'linear-gradient(180deg, rgba(6,12,34,0.9), rgba(12,22,40,0.85))';
+
+  const branding = weatherBranding[weatherState] || { bg: null, header: 'Vanguard Dashboard' };
+
+  // bgToUse will be either the resolved branding.bg (if it loads) or null -> fall back to gradient
+  const [bgToUse, setBgToUse] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBgToUse(null);
+
+    if (branding && branding.bg) {
+      // attempt to preload the image and only use it if it successfully loads
+      const img = new Image();
+      img.src = branding.bg;
+      img.onload = () => {
+        if (!cancelled) setBgToUse(branding.bg);
+      };
+      img.onerror = () => {
+        // image failed to load; keep bgToUse as null to use gradient fallback
+        if (!cancelled) setBgToUse(null);
+      };
+    } else {
+      // explicit no image for this state -> keep null to use gradient
+      setBgToUse(null);
+    }
+
+    return () => { cancelled = true; };
+  }, [weatherState, branding]);
 
   const headerStyle = {
-    backgroundImage: branding.bg ? `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${branding.bg})` : undefined,
+    backgroundImage: bgToUse
+      ? `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${bgToUse})`
+      : defaultGradient,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     color: '#fff',
