@@ -58,17 +58,17 @@ export default function App() {
   if (weatherCondition === 'thunderstorm') weatherState = 'THUNDERSTORM_RISK';
   else if (weatherCondition === 'snow') weatherState = 'BLIZZARD';
   else if (weatherCondition === 'cold') weatherState = 'COLD_EXPOSURE';
-  else if (weatherCondition === 'rain' || weatherCondition === 'thunderstorm') weatherState = 'LIGHTNING';
+  else if (weatherCondition === 'rain') weatherState = 'LIGHTNING';
 
   return (
     <WeatherBackgroundWrapper weatherCondition={weatherCondition} temperature={temperature}>
       <div className="frosted" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <header className="header-bar">
           <div className="logo-title">
-            <div className="logo-mark">VL</div>
+            <div className="logo-mark">EAF</div>
             <div>
-              <div className="title-main">Vanguard-W Edge-AI Weather</div>
-              <div className="title-sub">V-L Weather</div>
+              <div className="title-main">Edge-AI Weather Fusion</div>
+              <div className="title-sub">Client-Side WebGPU • ONNX WASM • Radar Fusion</div>
             </div>
           </div>
 
