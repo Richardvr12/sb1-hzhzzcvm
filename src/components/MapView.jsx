@@ -115,10 +115,11 @@ export default function MapView() {
 
           if (isNavigatingRef.current && mapRef.current) {
             try {
-              // Use panTo with animate to keep user's zoom level and provide smooth movement
-              mapRef.current.panTo([latitude, longitude], { animate: true });
+              // Use flyTo with animate to keep user's zoom level and provide smooth movement
+              const currentZoom = mapRef.current.getZoom();
+              mapRef.current.flyTo([latitude, longitude], currentZoom, { animate: true, duration: 0.8 });
             } catch (err) {
-              // Fallback to setView preserving zoom if panTo options are unsupported
+              // Fallback to setView preserving zoom if flyTo is unsupported
               const currentZoom = mapRef.current.getZoom();
               mapRef.current.setView([latitude, longitude], currentZoom);
             }
