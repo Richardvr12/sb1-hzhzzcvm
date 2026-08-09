@@ -46,7 +46,9 @@ function MapControls({ onSearchResult, onUseCurrentLocation }) {
 
 export default function MapView() {
   const mapRef = useRef(null);
-  const [position, setPosition] = useState(null);
+  const [position, setPosition] = useState(null); // last searched / selected position
+  const [userLocation, setUserLocation] = useState(null); // live device GPS
+  const [isNavigating, setIsNavigating] = useState(false); // follow-user mode
   const [radarFrames, setRadarFrames] = useState([]);
   const [radarFrameIndex, setRadarFrameIndex] = useState(0);
   const radarLayerRef = useRef(null);
@@ -95,6 +97,48 @@ export default function MapView() {
     radarLayerRef.current.addTo(map);
   }, [radarFrameIndex, radarFrames]);
 
+  // Watch device position when isNavigating is enabled
+  useEffect(() => {
+    if (!navigator.geolocation) return undefined;
+
+    let watchId = null;
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setUserLocation([latitude, longitude]);
+
+          // If navigation mode is active, center/follow the user while preserving zoom
+          if (isNavigating && mapRef.current) {
+            try {
+              const currentZoom = mapRef.current.getZoom();
+              // panTo with animation
+              mapRef.current.panTo([latitude, longitude], { animate: true, duration: 1.0 });
+              // ensure zoom unchanged
+              mapRef.current.setZoom(currentZoom);
+            } catch (err) {
+              // some Leaflet wrappers do not accept options object; fall back to setView
+              if (mapRef.current) {
+                const currentZoom = mapRef.current.getZoom();
+                mapRef.current.setView([latitude, longitude], currentZoom);
+              }
+            }
+          }
+        },
+        (err) => console.error('geolocation watch error', err),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+      );
+    } catch (e) {
+      console.warn('geolocation.watchPosition not available', e);
+    }
+
+    return () => {
+      if (watchId != null && navigator.geolocation && typeof navigator.geolocation.clearWatch === 'function') {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [isNavigating]);
+
   function handleMapCreated(mapInstance) {
     mapRef.current = mapInstance;
     if (!mapInstance.getPane('overlayPane')) mapInstance.createPane('overlayPane');
@@ -119,6 +163,7 @@ export default function MapView() {
       (pos) => {
         const latlng = [pos.coords.latitude, pos.coords.longitude];
         setPosition(latlng);
+        setUserLocation(latlng);
         // keep current zoom level when using location
         if (mapRef.current) {
           const currentZoom = mapRef.current.getZoom();
@@ -204,6 +249,7 @@ export default function MapView() {
         <MapContainer center={DEFAULT_CENTER} zoom={10} whenCreated={handleMapCreated} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {position && <Marker position={position} />}
+          {userLocation && <Marker position={userLocation} />}
           {routeGeoJson && <Polyline positions={routeGeoJson.coordinates.map(([lon, lat]) => [lat, lon])} color="blue" />}
           {routeRiskSegments.map((seg, i) => {
             const color = seg.risk === 'high' ? 'red' : seg.risk === 'medium' ? 'orange' : seg.risk === 'low' ? 'green' : 'gray';
@@ -219,7 +265,10 @@ export default function MapView() {
         <div style={{ marginTop: 12 }}>
           <h4>Route tools</h4>
           <p>Click a point on the map to calculate a route (or use search results).</p>
-          <p><button onClick={() => calculateRouteTo([37.7833, -122.4167])}>Calculate Route to SF City Hall</button></p>
+          <p style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => calculateRouteTo([37.7833, -122.4167])}>Calculate Route to SF City Hall</button>
+            <button onClick={() => setIsNavigating((s) => !s)}>{isNavigating ? 'Stop Following' : 'Follow Device'}</button>
+          </p>
         </div>
 
         <div style={{ marginTop: 12 }}>
