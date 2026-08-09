@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import TerminalLog from './components/TerminalLog';
 import { createPredictorWorker } from './utils/predictorClient';
 import WeatherBackgroundWrapper from './components/WeatherBackgroundWrapper';
+import './styles/app.css';
 
 export default function App() {
   const [view, setView] = useState('main');
@@ -36,7 +37,6 @@ export default function App() {
       setThreatScore(tele.score);
     }, (th) => {
       appendLog(`Threat detected severity=${th.severity.toFixed(3)} note=${th.note}`);
-      // we might want to change UI state or trigger notifications here
     });
     client.start();
     workerRef.current = client;
@@ -55,14 +55,18 @@ export default function App() {
 
   return (
     <WeatherBackgroundWrapper weatherCondition={weatherCondition} temperature={temperature}>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <header style={{ padding: 8, borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ margin: 0 }}>Vanguard UI — Live Radar & Predictive Navigation</h2>
+      <div className="frosted" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <header className="header-bar">
+          <div className="logo-title">
+            <div className="logo-mark">VL</div>
+            <div>
+              <div className="title-main">Vanguard-W Edge-AI Weather</div>
+              <div className="title-sub">V-L Weather</div>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <label style={{ fontSize: 12 }}>Weather:</label>
+            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Weather:</label>
             <select value={weatherCondition} onChange={(e) => setWeatherCondition(e.target.value)}>
               <option value="clear">Clear</option>
               <option value="partly cloudy">Partly Cloudy</option>
@@ -72,11 +76,12 @@ export default function App() {
               <option value="cold">Cold</option>
               <option value="cloudy">Cloudy</option>
             </select>
-            <label style={{ fontSize: 12 }}>Temp (°F):</label>
+            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Temp (°F):</label>
             <input type="number" value={temperature} onChange={(e) => setTemperature(Number(e.target.value))} style={{ width: 72 }} />
           </div>
         </header>
-        <div style={{ display: 'flex', flex: 1 }}>
+
+        <div style={{ display: 'flex', flex: 1, padding: 12, gap: 12 }}>
           <main style={{ flex: 1, overflow: 'auto' }}>
             <Dashboard view={view} setView={setView} startLiveFusion={startLiveFusion} stopLiveFusion={stopLiveFusion} liveRunning={liveRunning} threatScore={threatScore} />
             <div style={{ padding: 8 }}>
@@ -86,12 +91,14 @@ export default function App() {
             </div>
           </main>
 
-          <aside style={{ width: 420, borderLeft: '1px solid #eee', padding: 12, boxSizing: 'border-box' }}>
-            <h3>Terminal Log</h3>
-            <TerminalLog entries={predictionLog} />
+          <aside style={{ width: 420, borderLeft: '1px solid rgba(255,255,255,0.04)', padding: 12, boxSizing: 'border-box' }}>
+            <h3 style={{ marginTop: 0, color: '#fff' }}>Terminal Log</h3>
+            <div className="terminal">
+              <TerminalLog entries={predictionLog} />
+            </div>
             <div style={{ marginTop: 12 }}>
-              <h4>Threat Output</h4>
-              <div style={{ padding: 8, border: '1px solid #ccc', borderRadius: 6 }}>{(threatScore||0).toFixed(3)}</div>
+              <h4 style={{ color: '#fff' }}>Threat Output</h4>
+              <div style={{ padding: 8, border: '1px solid rgba(57,255,20,0.12)', borderRadius: 6, color: 'var(--neon-green)' }}>{(threatScore||0).toFixed(3)}</div>
             </div>
           </aside>
         </div>

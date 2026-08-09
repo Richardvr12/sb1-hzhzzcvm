@@ -139,9 +139,28 @@ export default function MapView() {
     };
   }, []);
 
+  // ensure Leaflet recalculates size when container/layout changes
+  useEffect(() => {
+    const onResize = () => {
+      try {
+        if (mapRef.current && typeof mapRef.current.invalidateSize === 'function') {
+          mapRef.current.invalidateSize();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    // call once after mount to avoid compressed map
+    setTimeout(onResize, 200);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   function handleMapCreated(mapInstance) {
     mapRef.current = mapInstance;
     if (!mapInstance.getPane('overlayPane')) mapInstance.createPane('overlayPane');
+    // invalidate size when map is created
+    setTimeout(() => { try { mapInstance.invalidateSize(); } catch (e) {} }, 150);
   }
 
   async function onSearchResult(latlng) {
@@ -249,7 +268,7 @@ export default function MapView() {
   const panelStyle = { width: 340, minWidth: 240 };
 
   return (
-    <div style={containerStyle}>
+    <div className="map-view-container" style={containerStyle}>
       <div style={mapWrapperStyle}>
         <MapContainer center={DEFAULT_CENTER} zoom={10} whenCreated={handleMapCreated} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />

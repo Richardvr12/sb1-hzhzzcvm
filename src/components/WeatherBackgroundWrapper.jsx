@@ -62,8 +62,12 @@ export default function WeatherBackgroundWrapper({ weatherCondition, temperature
   };
 
   return (
-    <div style={containerStyle}>
-      {children}
+    <div className="weather-bg" style={containerStyle}>
+      <div style={{ padding: 12 }}>{/* provide some outer padding so frosted container sits away from edges */}
+        <div className="frosted" style={{ padding: 0 }}>
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
