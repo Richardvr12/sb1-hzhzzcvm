@@ -26,15 +26,15 @@ function MapControls({ onSearchResult, onUseCurrentLocation }) {
 
   return (
     <div className="map-controls">
-      <form onSubmit={onSearch}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search places (OpenStreetMap)" />
+      <form onSubmit={onSearch} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input style={{ flex: 1 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search places (OpenStreetMap)" />
         <button type="submit">Search</button>
-        <button type="button" onClick={onUseCurrentLocation}>Current Location</button>
+        <button type="button" onClick={onUseCurrentLocation}>Current</button>
       </form>
-      <ul className="suggestions">
+      <ul className="suggestions" style={{ marginTop: 8, paddingLeft: 0, listStyle: 'none' }}>
         {suggestions.map((s, i) => (
           <li key={i}>
-            <button onClick={() => onSearchResult([parseFloat(s.lat), parseFloat(s.lon)])}>
+            <button style={{ background: 'none', border: 'none', padding: 6, textAlign: 'left', width: '100%' }} onClick={() => onSearchResult([parseFloat(s.lat), parseFloat(s.lon)])}>
               {s.display_name}
             </button>
           </li>
@@ -46,7 +46,10 @@ function MapControls({ onSearchResult, onUseCurrentLocation }) {
 
 export default function MapView() {
   const mapRef = useRef(null);
-  const [position, setPosition] = useState(null);
+  const [position, setPosition] = useState(null); // last searched / selected position
+  const [userLocation, setUserLocation] = useState(null); // live device GPS
+  const [isNavigating, setIsNavigating] = useState(false); // follow-user mode
+  const isNavigatingRef = useRef(isNavigating);
   const [radarFrames, setRadarFrames] = useState([]);
   const [radarFrameIndex, setRadarFrameIndex] = useState(0);
   const radarLayerRef = useRef(null);
@@ -60,6 +63,9 @@ export default function MapView() {
       return [];
     }
   });
+
+  // keep ref in sync with state so watchPosition callback reads latest
+  useEffect(() => { isNavigatingRef.current = isNavigating; }, [isNavigating]);
 
   // persist prediction log
   useEffect(() => {
@@ -95,14 +101,75 @@ export default function MapView() {
     radarLayerRef.current.addTo(map);
   }, [radarFrameIndex, radarFrames]);
 
+  // Start geolocation watch on mount to continuously track device movement.
+  // Only pan/follow when isNavigating is true; preserve user's manual zoom level.
+  useEffect(() => {
+    if (!navigator.geolocation) return undefined;
+    let watchId = null;
+
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setUserLocation([latitude, longitude]);
+
+          if (isNavigatingRef.current && mapRef.current) {
+            try {
+              // Use flyTo with animate to keep user's zoom level and provide smooth movement
+              const currentZoom = mapRef.current.getZoom();
+              mapRef.current.flyTo([latitude, longitude], currentZoom, { animate: true, duration: 0.8 });
+            } catch (err) {
+              // Fallback to setView preserving zoom if flyTo is unsupported
+              const currentZoom = mapRef.current.getZoom();
+              mapRef.current.setView([latitude, longitude], currentZoom);
+            }
+          }
+        },
+        (err) => console.error('geolocation watch error', err),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+      );
+    } catch (e) {
+      console.warn('geolocation.watchPosition not available', e);
+    }
+
+    return () => {
+      if (watchId != null && navigator.geolocation && typeof navigator.geolocation.clearWatch === 'function') {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
+
+  // ensure Leaflet recalculates size when container/layout changes
+  useEffect(() => {
+    const onResize = () => {
+      try {
+        if (mapRef.current && typeof mapRef.current.invalidateSize === 'function') {
+          mapRef.current.invalidateSize();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    // call once after mount to avoid compressed map
+    setTimeout(onResize, 200);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   function handleMapCreated(mapInstance) {
     mapRef.current = mapInstance;
     if (!mapInstance.getPane('overlayPane')) mapInstance.createPane('overlayPane');
+    // invalidate size when map is created
+    setTimeout(() => { try { mapInstance.invalidateSize(); } catch (e) {} }, 150);
   }
 
   async function onSearchResult(latlng) {
     setPosition(latlng);
-    if (mapRef.current) mapRef.current.setView(latlng, 12);
+    // keep current zoom level, center on searched location
+    if (mapRef.current) {
+      const currentZoom = mapRef.current.getZoom();
+      mapRef.current.setView(latlng, currentZoom);
+    }
     setPredictionLog((p) => [`Searched: ${latlng.join(', ')}`, ...p].slice(0, 200));
   }
 
@@ -115,7 +182,12 @@ export default function MapView() {
       (pos) => {
         const latlng = [pos.coords.latitude, pos.coords.longitude];
         setPosition(latlng);
-        if (mapRef.current) mapRef.current.setView(latlng, 13);
+        setUserLocation(latlng);
+        // keep current zoom level when using location
+        if (mapRef.current) {
+          const currentZoom = mapRef.current.getZoom();
+          mapRef.current.setView(latlng, currentZoom);
+        }
         setPredictionLog((p) => [`Current location: ${latlng.join(', ')}`, ...p].slice(0, 200));
       },
       (err) => {
@@ -173,7 +245,10 @@ export default function MapView() {
       setPredictionLog((p) => [`Route: ${Math.round(length * 100) / 100} km, segments: ${riskSegments.length}`, ...p].slice(0,200));
       if (mapRef.current) {
         const latlngs = route.coordinates.map(([lon, lat]) => [lat, lon]);
-        mapRef.current.fitBounds(latlngs);
+        // keep the current zoom level; center to route midpoint instead of fitBounds
+        const mid = latlngs[Math.floor(latlngs.length / 2)];
+        const currentZoom = mapRef.current.getZoom();
+        mapRef.current.setView(mid, currentZoom);
       }
     } catch (err) {
       console.error('Route error', err);
@@ -187,12 +262,18 @@ export default function MapView() {
     return null;
   }
 
+  // Responsive layout: left = map (flex:1), right = controls (fixed min width)
+  const containerStyle = { display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' };
+  const mapWrapperStyle = { flex: 1, minWidth: 0, height: '72vh' };
+  const panelStyle = { width: 340, minWidth: 240 };
+
   return (
-    <div style={{ display: 'flex' }}>
-      <div style={{ width: '70vw', height: '80vh' }}>
+    <div className="map-view-container" style={containerStyle}>
+      <div style={mapWrapperStyle}>
         <MapContainer center={DEFAULT_CENTER} zoom={10} whenCreated={handleMapCreated} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {position && <Marker position={position} />}
+          {userLocation && <Marker position={userLocation} />}
           {routeGeoJson && <Polyline positions={routeGeoJson.coordinates.map(([lon, lat]) => [lat, lon])} color="blue" />}
           {routeRiskSegments.map((seg, i) => {
             const color = seg.risk === 'high' ? 'red' : seg.risk === 'medium' ? 'orange' : seg.risk === 'low' ? 'green' : 'gray';
@@ -202,18 +283,21 @@ export default function MapView() {
         </MapContainer>
       </div>
 
-      <div style={{ width: '30vw', padding: 8 }}>
+      <div style={panelStyle}>
         <MapControls onSearchResult={onSearchResult} onUseCurrentLocation={onUseCurrentLocation} />
 
         <div style={{ marginTop: 12 }}>
           <h4>Route tools</h4>
           <p>Click a point on the map to calculate a route (or use search results).</p>
-          <p><button onClick={() => calculateRouteTo([37.7833, -122.4167])}>Calculate Route to SF City Hall</button></p>
+          <p style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => calculateRouteTo([37.7833, -122.4167])}>Calculate Route to SF City Hall</button>
+            <button onClick={() => setIsNavigating((s) => !s)}>{isNavigating ? 'Stop Following' : 'Follow Device'}</button>
+          </p>
         </div>
 
         <div style={{ marginTop: 12 }}>
           <h4>Prediction log</h4>
-          <ul style={{ maxHeight: 400, overflow: 'auto' }}>
+          <ul style={{ maxHeight: 360, overflow: 'auto', paddingLeft: 12 }}>
             {predictionLog.map((line, idx) => <li key={idx}>{line}</li>)}
           </ul>
         </div>

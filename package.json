@@ -16,7 +16,8 @@
     "react-dom": "^18.2.0",
     "leaflet": "^1.9.4",
     "react-leaflet": "^4.2.1",
-    "@turf/turf": "^6.5.0"
+    "@turf/turf": "^6.5.0",
+    "onnxruntime-web": "^1.15.0"
     },
   "devDependencies": {
     "@capacitor/android": "^5.0.0",
