@@ -49,6 +49,7 @@ export default function MapView() {
   const [position, setPosition] = useState(null); // last searched / selected position
   const [userLocation, setUserLocation] = useState(null); // live device GPS
   const [isNavigating, setIsNavigating] = useState(false); // follow-user mode
+  const isNavigatingRef = useRef(isNavigating);
   const [radarFrames, setRadarFrames] = useState([]);
   const [radarFrameIndex, setRadarFrameIndex] = useState(0);
   const radarLayerRef = useRef(null);
@@ -62,6 +63,9 @@ export default function MapView() {
       return [];
     }
   });
+
+  // keep ref in sync with state so watchPosition callback reads latest
+  useEffect(() => { isNavigatingRef.current = isNavigating; }, [isNavigating]);
 
   // persist prediction log
   useEffect(() => {
@@ -97,31 +101,26 @@ export default function MapView() {
     radarLayerRef.current.addTo(map);
   }, [radarFrameIndex, radarFrames]);
 
-  // Watch device position when isNavigating is enabled
+  // Start geolocation watch on mount to continuously track device movement.
+  // Only pan/follow when isNavigating is true; preserve user's manual zoom level.
   useEffect(() => {
     if (!navigator.geolocation) return undefined;
-
     let watchId = null;
+
     try {
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
           setUserLocation([latitude, longitude]);
 
-          // If navigation mode is active, center/follow the user while preserving zoom
-          if (isNavigating && mapRef.current) {
+          if (isNavigatingRef.current && mapRef.current) {
             try {
-              const currentZoom = mapRef.current.getZoom();
-              // panTo with animation
-              mapRef.current.panTo([latitude, longitude], { animate: true, duration: 1.0 });
-              // ensure zoom unchanged
-              mapRef.current.setZoom(currentZoom);
+              // Use panTo with animate to keep user's zoom level and provide smooth movement
+              mapRef.current.panTo([latitude, longitude], { animate: true });
             } catch (err) {
-              // some Leaflet wrappers do not accept options object; fall back to setView
-              if (mapRef.current) {
-                const currentZoom = mapRef.current.getZoom();
-                mapRef.current.setView([latitude, longitude], currentZoom);
-              }
+              // Fallback to setView preserving zoom if panTo options are unsupported
+              const currentZoom = mapRef.current.getZoom();
+              mapRef.current.setView([latitude, longitude], currentZoom);
             }
           }
         },
@@ -137,7 +136,7 @@ export default function MapView() {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [isNavigating]);
+  }, []);
 
   function handleMapCreated(mapInstance) {
     mapRef.current = mapInstance;
