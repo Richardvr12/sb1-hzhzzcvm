@@ -53,6 +53,13 @@ export default function App() {
     appendLog('Predictive engine stopped');
   };
 
+  // derive a simple weather state for dashboard branding from demo weatherCondition
+  let weatherState = null;
+  if (weatherCondition === 'thunderstorm') weatherState = 'THUNDERSTORM_RISK';
+  else if (weatherCondition === 'snow') weatherState = 'BLIZZARD';
+  else if (weatherCondition === 'cold') weatherState = 'COLD_EXPOSURE';
+  else if (weatherCondition === 'rain' || weatherCondition === 'thunderstorm') weatherState = 'LIGHTNING';
+
   return (
     <WeatherBackgroundWrapper weatherCondition={weatherCondition} temperature={temperature}>
       <div className="frosted" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -83,7 +90,7 @@ export default function App() {
 
         <div style={{ display: 'flex', flex: 1, padding: 12, gap: 12 }}>
           <main style={{ flex: 1, overflow: 'auto' }}>
-            <Dashboard view={view} setView={setView} startLiveFusion={startLiveFusion} stopLiveFusion={stopLiveFusion} liveRunning={liveRunning} threatScore={threatScore} />
+            <Dashboard view={view} setView={setView} startLiveFusion={startLiveFusion} stopLiveFusion={stopLiveFusion} liveRunning={liveRunning} threatScore={threatScore} weatherState={weatherState} />
             <div style={{ padding: 8 }}>
               {view === 'main' && <MapView appendLog={(m) => appendLog(m)} />}
               {view === 'radar' && <MapView appendLog={(m) => appendLog(m)} />}

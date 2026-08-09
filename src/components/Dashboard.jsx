@@ -1,8 +1,48 @@
 import React from 'react';
+import darkClouds from '../assets/weather-brands/dark_clouds.png';
+import snowActive from '../assets/weather-brands/snow_active.png';
+import coldExposure from '../assets/weather-brands/cold_exposure.png';
+import lightningStrike from '../assets/weather-brands/lightning_strike.png';
 
-export default function Dashboard({ view, setView, startLiveFusion, stopLiveFusion, liveRunning, threatScore }) {
+export default function Dashboard({ view, setView, startLiveFusion, stopLiveFusion, liveRunning, threatScore, weatherState }) {
+  // Map weather states to branding assets and text
+  const weatherBranding = {
+    THUNDERSTORM_RISK: {
+      bg: darkClouds,
+      header: 'THUNDERSTORM MITIGATION'
+    },
+    BLIZZARD: {
+      bg: snowActive,
+      header: 'BLIZZARD SAFETY PROTOCOL'
+    },
+    COLD_EXPOSURE: {
+      bg: coldExposure,
+      header: 'COLD EXPOSURE ALERT'
+    },
+    LIGHTNING: {
+      bg: lightningStrike,
+      header: 'LIGHTNING STRIKE WARNING'
+    }
+  };
+
+  const branding = weatherBranding[weatherState] || { bg: '', header: 'Vanguard Dashboard' };
+
+  const headerStyle = {
+    backgroundImage: branding.bg ? `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${branding.bg})` : undefined,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    color: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12
+  };
+
   return (
     <div style={{ padding: 12 }}>
+      <div style={headerStyle}>
+        <h2 style={{ margin: 0 }}>{branding.header}</h2>
+      </div>
+
       <nav style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <button onClick={() => setView('main')} disabled={view==='main'}>Main User Interface</button>
         <button onClick={() => setView('radar')} disabled={view==='radar'}>Active Radar View</button>
