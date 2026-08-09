@@ -2,22 +2,40 @@ name: Android Build (AAB)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - ci/android-aab-workflow
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   build-android:
     name: Build Android App Bundle
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: ${{ runner.temp }}/android-sdk
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+          key: npm-cache-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            npm-cache-${{ runner.os }}-
 
       - name: Install project dependencies
         run: npm ci
@@ -27,7 +45,7 @@ jobs:
 
       - name: Install Android Command Line Tools
         run: |
-          export ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          export ANDROID_SDK_ROOT="${{ runner.temp }}/android-sdk"
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
           cd $ANDROID_SDK_ROOT/cmdline-tools
           curl -o cmdline-tools.zip -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip"
@@ -38,18 +56,37 @@ jobs:
 
       - name: Accept licenses and install SDK packages
         run: |
-          export ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          export ANDROID_SDK_ROOT="${{ runner.temp }}/android-sdk"
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --licenses || true
         shell: bash
 
-      - name: Show Android SDK info
+      - name: Show Android SDK info (diagnostic)
         run: |
-          export ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
-          ls -la $ANDROID_SDK_ROOT
+          export ANDROID_SDK_ROOT="${{ runner.temp }}/android-sdk"
+          ls -la $ANDROID_SDK_ROOT || true
           $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --list_installed || true
         shell: bash
 
-      - name: Install Gradle wrapper cache
+      - name: Ensure Gradle wrapper is executable (early)
+        run: |
+          if [ -f android/gradlew ]; then chmod +x android/gradlew; fi
+        shell: bash
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Show Java & Gradle info (diagnostic)
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version || true
+          if [ -f android/gradlew ]; then android/gradlew -v || true; fi
+        shell: bash
+
+      - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
@@ -59,25 +96,43 @@ jobs:
           restore-keys: |
             gradle-cache-${{ runner.os }}-
 
-      - name: Prepare Android native project (Capacitor copy)
+      - name: Prepare Android native project (Capacitor)
         run: |
-          npx cap copy android
-          npx cap update android
-
-      - name: Decode Android keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
-          else
-            echo "No keystore secret provided, skipping..."
-          fi
+          npx cap sync android || { echo "npx cap sync failed"; exit 0; }
+          npx cap update android || true
         shell: bash
 
-      - name: Build Android AAB
+      - name: Show android/ dir for debugging
+        run: |
+          ls -la android || echo "android/ not present"
+          if [ -d android ]; then find android -maxdepth 2 -type f -name 'build.gradle' -o -name 'settings.gradle' -o -name 'gradle.properties' -print; fi
+        shell: bash
+
+      - name: Decode Android keystore (optional)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/keystore.jks
+        shell: bash
+
+      - name: Create gradle.properties for signing (optional)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          cat <<EOF > android/gradle.properties
+ANDROID_SIGNING_STORE_FILE=keystore.jks
+ANDROID_SIGNING_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+ANDROID_SIGNING_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
+ANDROID_SIGNING_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+EOF
+        shell: bash
+
+      - name: Build Android AAB (verbose)
         working-directory: android
-        run: ./gradlew bundleRelease --no-daemon -Pandroid.injected.invoked.from.ide=true
+        run: |
+          set -x
+          ./gradlew bundleRelease --no-daemon -Pandroid.injected.invoked.from.ide=true --stacktrace --info
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
+        shell: bash
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
