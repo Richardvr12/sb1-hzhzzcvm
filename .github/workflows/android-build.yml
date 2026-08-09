@@ -52,12 +52,13 @@ jobs:
       - name: Show Java info
         run: |
           java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-
       - name: Prepare Android native project (Capacitor copy)
         run: |
+          npx cap add android || true
           npx cap copy android
           npx cap update android
+ 
+
 
       - name: Decode Android keystore
         env:
