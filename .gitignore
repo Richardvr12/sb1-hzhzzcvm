@@ -1,1 +1,19 @@
+# Node
 node_modules
+
+# Vite / build
+dist
+
+# Capacitor / Android
+android/.gradle
+android/build
+android/app/build
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
