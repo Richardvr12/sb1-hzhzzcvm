@@ -26,15 +26,15 @@ function MapControls({ onSearchResult, onUseCurrentLocation }) {
 
   return (
     <div className="map-controls">
-      <form onSubmit={onSearch}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search places (OpenStreetMap)" />
+      <form onSubmit={onSearch} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input style={{ flex: 1 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search places (OpenStreetMap)" />
         <button type="submit">Search</button>
-        <button type="button" onClick={onUseCurrentLocation}>Current Location</button>
+        <button type="button" onClick={onUseCurrentLocation}>Current</button>
       </form>
-      <ul className="suggestions">
+      <ul className="suggestions" style={{ marginTop: 8, paddingLeft: 0, listStyle: 'none' }}>
         {suggestions.map((s, i) => (
           <li key={i}>
-            <button onClick={() => onSearchResult([parseFloat(s.lat), parseFloat(s.lon)])}>
+            <button style={{ background: 'none', border: 'none', padding: 6, textAlign: 'left', width: '100%' }} onClick={() => onSearchResult([parseFloat(s.lat), parseFloat(s.lon)])}>
               {s.display_name}
             </button>
           </li>
@@ -243,9 +243,14 @@ export default function MapView() {
     return null;
   }
 
+  // Responsive layout: left = map (flex:1), right = controls (fixed min width)
+  const containerStyle = { display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' };
+  const mapWrapperStyle = { flex: 1, minWidth: 0, height: '72vh' };
+  const panelStyle = { width: 340, minWidth: 240 };
+
   return (
-    <div style={{ display: 'flex' }}>
-      <div style={{ width: '70vw', height: '80vh' }}>
+    <div style={containerStyle}>
+      <div style={mapWrapperStyle}>
         <MapContainer center={DEFAULT_CENTER} zoom={10} whenCreated={handleMapCreated} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {position && <Marker position={position} />}
@@ -259,7 +264,7 @@ export default function MapView() {
         </MapContainer>
       </div>
 
-      <div style={{ width: '30vw', padding: 8 }}>
+      <div style={panelStyle}>
         <MapControls onSearchResult={onSearchResult} onUseCurrentLocation={onUseCurrentLocation} />
 
         <div style={{ marginTop: 12 }}>
@@ -273,7 +278,7 @@ export default function MapView() {
 
         <div style={{ marginTop: 12 }}>
           <h4>Prediction log</h4>
-          <ul style={{ maxHeight: 400, overflow: 'auto' }}>
+          <ul style={{ maxHeight: 360, overflow: 'auto', paddingLeft: 12 }}>
             {predictionLog.map((line, idx) => <li key={idx}>{line}</li>)}
           </ul>
         </div>
