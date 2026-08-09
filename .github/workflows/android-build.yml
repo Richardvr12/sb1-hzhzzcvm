@@ -36,28 +36,12 @@ jobs:
           restore-keys: |
             android-sdk-${{ runner.os }}-
 
-      - name: Install Android Command Line Tools
-        if: steps.cache-android.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-          cd $ANDROID_SDK_ROOT/cmdline-tools
-          curl -o cmdline-tools.zip -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip"
-          unzip -q cmdline-tools.zip
-          mv cmdline-tools latest
-          rm cmdline-tools.zip
-        shell: bash
-
-      - name: Accept licenses and install SDK packages
-        run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-        shell: bash
-
-      - name: Show Android SDK info
-        run: |
-          ls -la $ANDROID_SDK_ROOT
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --list_installed || true
-        shell: bash
-
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 9.0
+          accept-android-sdk-licenses: true
+      
       - name: Set up JDK 17 and Gradle cache
         uses: actions/setup-java@v4
         with:
